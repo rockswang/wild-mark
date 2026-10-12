@@ -1,0 +1,10 @@
+go 1.26.0
+
+use (
+	.
+	./ref/proto
+	./ref/go-edit-v0.11.0
+)
+
+// 上游 go-gui 需打补丁（IME 目标判定）；全仓库统一指向本地 v0.78.0 源码。
+replace github.com/go-gui-org/go-gui => ./ref/go-gui-v0.78.0

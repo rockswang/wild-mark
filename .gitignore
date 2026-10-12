@@ -1,0 +1,40 @@
+# ---- 构建产物 ----
+/bin/
+/build/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+
+# ---- 本地临时目录（约定：临时文件一律放 temp/）----
+/temp/
+/tmp/
+
+# ---- 测试数据：超大可再生（1/10/32/64/128MiB × norm/struct/code）----
+# 运行 `go run ./ref/proto/cmd/gen_testdata`（或正式版生成器）即可重建
+/testdata/large/
+
+# ---- 参考源码：由 scripts/fetch_refs.sh 解包重建，不入库 ----
+/ref/go-gui-v0.78.0/
+/ref/go-gui-v0.87.0/
+/ref/go-edit-v0.11.0/
+/ref/dl/
+/ref/proto/artifacts/
+/ref/proto/build/
+/ref/proto/tools/*.exe
+
+# ---- IDE / 编辑器 ----
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---- 系统 ----
+Thumbs.db
+desktop.ini
+.DS_Store
