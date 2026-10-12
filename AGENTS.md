@@ -100,9 +100,7 @@
 
 ### Github
 * 账号：rockswang
-* Token：见本地全局 `~/.pi/agent/AGENTS.md` 的「个人凭据」节，或环境变量 `GH_TOKEN`；**不得写入本仓库任何文件**。
+* Token：见本地全局 `~/.pi/agent/AGENTS.md` 的「个人凭据」节；**不得写入本仓库任何文件**（Push Protection 会拦截）。
 * 注意：该 token 为仓库所有者明文授权的凭据，仅用于 rockswang 相关仓库的 git 推送/API 调用；不要向任何第三方暴露。
-* 推送方式（避免 token 落盘到 `.git/config`）：
-  ```bash
-  git push "https://rockswang:$GH_TOKEN@github.com/rockswang/wild-markdown.git" main:main
-  ```
+* **推送**：已配置到本地 `.git/config` 的 origin URL（不在版本控制内，不会被扫描），直接 `git push` / `git fetch` 即可，无需手动带 token。
+  - 查看：`git remote -v`；改回纯净 URL：`git remote set-url origin https://github.com/rockswang/wild-markdown.git`
