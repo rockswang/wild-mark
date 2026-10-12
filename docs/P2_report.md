@@ -16,7 +16,7 @@
 - **单一 EXE，自包含**。无独立 DLL/运行库/资源目录。
 - 图标字体 `feathericon.ttf` 通过 `go:embed` **打进 EXE**。
 - 正文字体依赖**系统字体**（go-glyph 读 Windows 系统字体）。→ 不在 EXE 内，发布体积不因中文字体增大。
-- 发布目录 = 单个 mdviewer.exe（18.7 MB）。220 KB 与 25 MB 的差异即符号表。
+- 发布目录 = 单个 wild-markdown.exe（18.7 MB）。220 KB 与 25 MB 的差异即符号表。
 
 ## P2-3 DLL/原生依赖
 - Windows 后端 Win32+WGL，**全链路 CGO-free**（`CGO_ENABLED=0`）。

@@ -11,7 +11,9 @@
 - `go-edit`：纯 Go 编辑器 widget（chroma 高亮、goldmark）
 - **版本墙**：go-edit v0.11.0 锁定 go-gui **v0.78.0** + go-glyph **v1.25.2**（用 latest v0.87.0 会因 `Border` 类型 API 变化编译失败）。本地 `go.work` + `replace` 已对齐。
 
-## 项目结构（D:\work\wild-edit）
+## 项目结构
+
+> 项目正式名为 **wild-markdown**（https://github.com/rockswang/wild-markdown），本地目录仍沿用历史名 `D:\work\wild-edit`。
 - `ref/proto/cmd/`：原型与基准程序
   - `mdproto/`：左右分栏查看器原型（核心，已含 IME fix + 2MB 降级预览 + maxContentW 修复）
   - `p0_blank` / `p0_framecount` / `p0_pprof` / `p0_probe`：P0 空闲 CPU/内存探针

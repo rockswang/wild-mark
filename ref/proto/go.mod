@@ -1,6 +1,6 @@
 // 原型验证模块（P0/P1/P2 探针与基准，已冻结归档）。
 // 独立于根模块，便于正式版开发时互不干扰；仍可通过仓库根的 go.work 一起构建。
-module github.com/rockswang/mdviewer/ref/proto
+module github.com/rockswang/wild-markdown/ref/proto
 
 go 1.26.0
 

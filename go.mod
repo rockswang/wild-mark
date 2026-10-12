@@ -1,7 +1,7 @@
 // 正式版：Go-Gui Markdown 查看器。
 // 版本锁定：go-edit v0.11.0 依赖 go-gui v0.78.0（更高版本会因 Border API 变化而编译失败）。
 // 本地补丁的 go-gui / go-edit 源码位于 ref/，由仓库根的 go.work 统一 replace。
-module github.com/rockswang/mdviewer
+module github.com/rockswang/wild-markdown
 
 go 1.26.0
 

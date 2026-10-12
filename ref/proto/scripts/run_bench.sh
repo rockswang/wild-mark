@@ -31,8 +31,8 @@ bash ref/proto/scripts/measure_mdproto.sh "$TD/md_10MiB_norm.md" 6 10m 2>&1 | gr
 
 echo; echo "[P2] 发布体积"
 mkdir -p "$D/release"
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$D/release/mdviewer.exe" ./ref/proto/cmd/mdproto
-ls -la "$D/release/mdviewer.exe" | awk '{print "  stripped EXE:", $5, "bytes"}'
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$D/release/wild-markdown.exe" ./ref/proto/cmd/mdproto
+ls -la "$D/release/wild-markdown.exe" | awk '{print "  stripped EXE:", $5, "bytes"}'
 
 echo; echo "=========================================="
 echo " 完成 $(date '+%T')"

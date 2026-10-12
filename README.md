@@ -1,6 +1,9 @@
-# wild-edit / mdviewer
+# wild-markdown
 
 基于 **go-gui-org 生态** 的纯 Go Markdown 查看器（CGO-free，Windows 优先）。
+
+- Go module：`github.com/rockswang/wild-markdown`
+- 仓库：https://github.com/rockswang/wild-markdown
 
 > 当前状态：**原型验证已完成**（P0 空闲资源 / P1 超大文件 / P2 磁盘体积），结论见
 > [`docs/HANDOFF.md`](docs/HANDOFF.md)。**正式版开发即将在根目录按 Go 项目惯例启动。**
@@ -64,7 +67,7 @@ bash ref/proto/scripts/fetch_refs.sh
 ```bash
 # 正式版（根模块）——开发中
 go build ./...
-go run ./cmd/mdviewer <file.md>     # 目标入口（待实现）
+go run ./cmd/wild-markdown <file.md>   # 目标入口（待实现）
 
 # 原型（ref/proto 独立模块，通过 go.work 一并构建）
 go run ./ref/proto/cmd/mdproto testdata/large/md_1MiB_norm.md
