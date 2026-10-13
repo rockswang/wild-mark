@@ -2,32 +2,73 @@
 
 ## 项目标识
 
-- **正式名称**：**wild-markdown**（Markdown 编辑器 / 查看器）
-- **Go module**：`github.com/rockswang/wild-markdown`
-- **远程仓库**：https://github.com/rockswang/wild-markdown （默认分支 `main`）
+- **正式名称**：**wild-mark**（Windows 原生轻量 Markdown 编辑器 / 查看器）
+- **技术路线**：Rust + Win32 原生窗口 + Scintilla（编辑）+ RichEdit（预览）；**不使用** WebView2 / Chromium / 跨平台 GUI 框架 / Go
+- **仓库**：https://github.com/rockswang/wild-mark （默认分支 `main`）
 - **本地工作目录**：`D:\work\wild-edit`（目录名沿用历史，勿据此改项目名）
-- 曾用名 `mdviewer` / `wild-edit` 已废弃，新代码、构建产物、文档一律使用 **wild-markdown**。
+- 历史 Go 路线（`wild-markdown` 原型）已归档在 `ref/`，**不再维护，不得作为实现参考**。
 
 ### 仓库结构约定
 
-| 路径 | 说明 |
-|---|---|
-| `./` | **正式版** Go module（`github.com/rockswang/wild-markdown`），根目录保持整洁 |
-| `docs/` | 需求 `input.md`、研究报告 `P0/P1/P2/IME_report.md`、决策 `B_decisions.md`、交接 `HANDOFF.md` |
-| `testdata/` | 测试数据；`large/` 为可再生的超大文件（不入库） |
-| `ref/` | **参考与原型归档**，正式版不从这里 import。见 `ref/README.md` |
-| `ref/proto/` | 冻结的原型模块（独立 go.mod），经根 `go.work` 一起构建 |
-| `temp/` | 本地临时文件（不入库，勿用系统临时目录） |
+| 路径 | 说明 | 是否入库 |
+|---|---|---|
+| `./` | 正式版 Rust crate（`Cargo.toml` + `src/`），根目录保持整洁 | ✅ |
+| `src/` | `win.rs`(Win32) `metrics.rs`(自采样) `harness.rs`(场景) `scintilla.rs` `md2rtf.rs` `richedit.rs` + `bin/` 探针 | ✅ |
+| `tests/` | RTF 转义与结构回归测试 | ✅ |
+| `scripts/` | `gen_sci_const.py`(常量生成) `run_task.py`(交互桌面投递) `bmp_stats.py` `rtf_check.py` | ✅ |
+| `docs/` | 需求/报告；**默认全部排除，白名单逐篇确认后提交** | ⚠️ 白名单 |
+| `native/` | Scintilla/Lexilla 源码与构建产物，`build_native.bat` 可再生 | ❌ |
+| `ref/` | Go 路线归档、上游参考源码与补丁 | ❌ |
+| `testdata/` | 测试数据；`large/` 可再生 | ❌ |
+| `temp/` | 本地临时文件（不入库，勿用系统临时目录） | ❌ |
+| `artifacts/` | 测量产物（JSONL / 截图 / 模块清单） | ❌ |
 
 ### 依赖与版本墙
 
-- `go-edit v0.11.0` 锁定 `go-gui v0.78.0` + `go-glyph v1.25.2`；go-gui latest（v0.87.0）会因 `Border` API 变化编译失败。
-- 本地已给 go-gui / go-edit 打补丁（IME 目标判定、编辑器最大行宽缓存），补丁源码不在库内，需按 `ref/README.md` 重建。
-- 正式版开发**不得直接修改供应商源码**；如需补丁，经 `ref/` + `go.work replace` 注入。
+- `Scintilla 5.15` + `Lexilla 5.30` 由 `build_native.bat`（MSVC nmake 官方 makefile）构建，**不要直接改 `native/` 下上游源码**；需要补丁时另存补丁脚本并在报告中记录。
+- `windows` crate 锁 0.58（0.6x 系列 API 有破坏性调整）；`pulldown-cmark` 锁 0.13。
+- `Msftedit.dll`（RichEdit 4.1）为系统组件，预览控件**只读**使用。
 
-----------
+### Scintilla 集成要点（原型期已踩坑）
+
+1. Scintilla 5.x 核心**无内置 lexer**：只能用 `SCI_SETILEXER(0, Lexilla::CreateLexer("markdown"))` 或容器自染（`SCN_STYLENEEDED` + `SCI_SETSTYLING`）；`SCI_SETLEXER` 消息在 5.x 已不存在。
+2. 64 位下 `ScintillaDirect2Call` 不可用，FFI 统一 `SendMessageW`；`Scintilla.dll` 的 `DllMain` 会自注册窗口类 `Scintilla`。
+3. 消息号常量一律由 `scripts/gen_sci_const.py` 从头文件生成到 `src/sci_const.rs`（**禁止手抄**）；升级 Scintilla 后重跑该脚本。
+4. TSF 中文输入**不产生 `WM_CHAR`**，输入处理请基于 `SCN_MODIFIED` / `SCN_CHARADDED`。
+
+### 预览链路要点
+
+- RTF 是**内存中间产物**：中文默认写 `\ansicpg936` + GBK 原始字节（体积 x1.10，生成快 3.9 倍），异常字符回退 `\u` 转义（`\uN?`，非 BMP 拆代理对）。转义全部收口在 `md2rtf.rs` 的 `text()`，**禁止把原文直接拼进控制串**。
+- 整篇 `EM_STREAMIN` 刷新会**重置光标/选区**（滚动位置正常保持）→ 刷新前后必须 `EM_EXGETSEL` / `EM_EXSETSEL`。
+- RichEdit 首次灌入有 ~200 ms 一次性开销 → 启动时预热控件，不要每次打开文件重建。
+- 预览阈值默认 8 MiB：超阈值关闭实时预览（延迟解析 + 手动刷新）。
+
+### 验证纪律（重要）
+
+- **所有 GUI 测量必须投递到交互桌面执行**（`python scripts/run_task.py <exe> [args]`）。本 agent 的 bash 位于 session 0（非交互窗口站），在那里 `CreateWindowExW` 不会真正绘制，测出的内存/CPU/GDI 全部失真（实测空窗口私有工作集 0.6 MiB vs 41.9 MiB）。
+- 内存口径统一报 **PrivateWorkingSetSize（私有工作集）**，并同时给出 WorkingSet；评价"轻量"时注意交互桌面会注入第三方输入法（如搜狗 IME 约 27 MiB 映像）与系统 UI 栈，属环境成本而非程序成本。
+- 长任务（≥10 min 稳定性、≥1 GiB 文件）必须给出实测基线，不要用"应该可以"代替数据。
+- 性能回归使用固定测试机、`--release`、重复测量；关键数据落盘到 `artifacts/*.summary.json` 与报告。
+
+### 常用命令
+
+```bash
+build_native.bat                                    # Scintilla/Lexilla（MSVC nmake）
+python scripts/gen_sci_const.py                     # 生成 src/sci_const.rs
+cargo build --release
+cargo test --release                                # RTF 回归（15 项）
+target/release/gen_testdata.exe --large             # 生成 1~128 MiB 测试数据
+python scripts/run_task.py target/release/p0_blank.exe --idle 60 --min 60 --drag 30
+python scripts/run_task.py target/release/p1_scintilla.exe --bench-sizes 1,10,32,64,128
+python scripts/run_task.py target/release/p2_preview.exe --bench-sizes 1,10,32,64,128 --compare-cp --stress 20
+python scripts/run_task.py target/release/mem_probe.exe --mods --preview
+python scripts/bmp_stats.py artifacts/p2.bmp        # 渲染像素级校验
+```
+
+---
 
 ## 工具
+
 * 运行环境：中文 Windows 10 64位系统
 * 除非特殊要求，严禁使用 Powershell cmdlet，包括powershell.exe和pwsh.exe，以避免字符编码、管道重定向等错误。
 * 工具 bash 实际执行环境是 git-bash(MSYS2)，命令一律用 bash 语法，勿用 cmd 内部命令（如 `ver`、`%VAR%` 展开）；路径可用 `/c/...` 或 `C:/...`。
@@ -59,6 +100,7 @@
 ----------
 
 ## 编程风格
+
 * 注意：本风格仅适用于面向生产交付的源代码、脚本、测试用例等，对于用于快速验证的脚本，不做强制要求，仅做风格参考。
 
 ### 不限语言编程偏好
@@ -81,7 +123,13 @@
 * 对部分非关键解析失败会容忍重试或吞掉异常，保障主流程继续尝试。
 * Fail Early，除非特别要求，不随意编写兜底逻辑，导致错误被掩盖或延后。
 
-### Python偏好
+### Rust 偏好
+* FFI 边界保持薄：结构体与消息号常量自动生成（见 `scripts/gen_sci_const.py`），手写部分只做类型安全封装。
+* 出错路径优先 `Result` + `?`；原型探针可 panic，正式代码不得静默吞错。
+* 热路径避免分配：写文本/RTF 一律往预分配 `Vec<u8>` 追加，不要拼 `String` 中间量。
+* `unsafe` 块必须附中文注释说明前置条件（指针来源、生命周期、线程假设）。
+
+### Python 偏好
 * 函数式组织，除非需要保存状态或封装通用能力，否则不主动引入复杂类层次。
 * 通用状态能力才抽成类，例如 TaskManager、Timer、Reqx。
 * 对性能比较敏感，倾向批量处理、集合运算、分页拉取、多线程请求、基准测试。
@@ -96,11 +144,12 @@
 -----------
 
 ## 个人凭据
+
 * 敏感数据，仅可使用，除非要求，否则勿落盘文档；**严禁提交进本仓库**（GitHub Push Protection 会拦截）。
 
 ### Github
 * 账号：rockswang
 * Token：见本地全局 `~/.pi/agent/AGENTS.md` 的「个人凭据」节；**不得写入本仓库任何文件**（Push Protection 会拦截）。
-* 注意：该 token 为仓库所有者明文授权的凭据，仅用于 rockswang 相关仓库的 git 推送/API 调用；不要向任何第三方暴露。
+* 注意：此 token 为仓库所有者明文授权的凭据，仅用于 rockswang 相关仓库的 git 推送/API 调用；不要向任何第三方暴露。
 * **推送**：已配置到本地 `.git/config` 的 origin URL（不在版本控制内，不会被扫描），直接 `git push` / `git fetch` 即可，无需手动带 token。
-  - 查看：`git remote -v`；改回纯净 URL：`git remote set-url origin https://github.com/rockswang/wild-markdown.git`
+  - 查看：`git remote -v`；改回纯净 URL：`git remote set-url origin https://github.com/rockswang/wild-mark.git`

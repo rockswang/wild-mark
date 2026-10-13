@@ -1,0 +1,63 @@
+[package]
+name = "wild-mark"
+version = "0.1.0"
+edition = "2021"
+description = "Windows 原生轻量 Markdown 编辑器（Rust + Win32 + Scintilla + RichEdit）"
+license = "MIT"
+authors = ["rockswang"]
+repository = "https://github.com/rockswang/wild-mark"
+
+# 依赖只保留 Win32 绑定与 Markdown 解析，不引入 GUI 框架或运行时
+[dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Controls",
+    "Win32_UI_Controls_RichEdit",
+    "Win32_UI_Shell",
+    "Win32_UI_Input_Ime",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Performance",
+    "Win32_System_Threading",
+    "Win32_System_SystemInformation",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_Globalization",
+    "Win32_Storage_Xps",
+] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+
+# 体积与性能优先：实测空窗口 exe 0.24 MiB
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# ---- 验证探针（原型期产物，正式版开发中逐步并入 src/app.rs）----
+[[bin]]
+name = "p0_blank"
+path = "src/bin/p0_blank.rs"
+
+[[bin]]
+name = "p1_scintilla"
+path = "src/bin/p1_scintilla.rs"
+
+[[bin]]
+name = "p2_preview"
+path = "src/bin/p2_preview.rs"
+
+[[bin]]
+name = "mem_probe"
+path = "src/bin/mem_probe.rs"
+
+[[bin]]
+name = "gen_testdata"
+path = "src/bin/gen_testdata.rs"

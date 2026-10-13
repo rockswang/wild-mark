@@ -1,32 +1,58 @@
-# ---- 构建产物 ----
-/bin/
-/build/
-/dist/
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-*.prof
+# ============================================================================
+# wild-mark — 仓库卫生规则
+# 原则：只提交正式版源码与必需脚手架；原型归档、参考源码、临时文件、生成数据一律不入库。
+# ============================================================================
+
+# ---- 参考/归档：Go 路线与上游源码（本地重建，不入库）----
+/ref/
+/ref/go/
+/dl/
 
 # ---- 本地临时目录（约定：临时文件一律放 temp/）----
 /temp/
 /tmp/
+*.tmp
+*.bak
 
-# ---- 测试数据：超大可再生（1/10/32/64/128MiB × norm/struct/code）----
-# 运行 `go run ./ref/proto/cmd/gen_testdata`（或正式版生成器）即可重建
+# ---- 文档：默认全部排除，仅白名单提交我确认过的文档 ----
+# 新增已确认文档时，在文件末尾按 “!/docs/<相对路径>” 追加一行
+/docs/**
+# 白名单（示例，按需取消注释）
+# !/docs/README.md
+
+# ---- 测试数据：large/ 为可再生超大文件；small/pathological 体积小但同为生成物 ----
 /testdata/large/
+/testdata/small/
+/testdata/pathological/
 
-# ---- 参考源码：由 scripts/fetch_refs.sh 解包重建，不入库 ----
-/ref/go-gui-v0.78.0/
-/ref/go-gui-v0.87.0/
-/ref/go-edit-v0.11.0/
-/ref/dl/
-/ref/proto/artifacts/
-/ref/proto/build/
-/ref/proto/tools/*.exe
+# ---- 构建产物 ----
+/target/
+/bin/
+/build/
+/dist/
+*.exe
+*.pdb
+*.exp
+*.ilk
+*.lib
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.res
+*.test
+*.prof
+
+# ---- 原生库源码与构建输出（build_native.bat 可再生）----
+/native/
+
+# ---- 测量产物（JSONL / 截图 / 模块清单 / 任务日志）----
+/artifacts/
+
+# ---- 原型期一次性脚本产物 ----
+/scripts/__pycache__/
+/temp_task_*.bat
 
 # ---- IDE / 编辑器 ----
 .idea/

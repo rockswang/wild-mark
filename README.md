@@ -1,92 +1,85 @@
-# wild-markdown
+# wild-mark
 
-基于 **go-gui-org 生态** 的纯 Go Markdown 查看器（CGO-free，Windows 优先）。
+**Windows 原生轻量 Markdown 编辑器 / 查看器**。不使用 WebView2、Chromium 或任何跨平台 GUI 框架——窗口、文本输入、字体排版全部复用 Windows 原生能力。
 
-- Go module：`github.com/rockswang/wild-markdown`
-- 仓库：https://github.com/rockswang/wild-markdown
-
-> 当前状态：**原型验证已完成**（P0 空闲资源 / P1 超大文件 / P2 磁盘体积），结论见
-> [`docs/HANDOFF.md`](docs/HANDOFF.md)。**正式版开发即将在根目录按 Go 项目惯例启动。**
-
-## 技术栈与版本墙
-
-| 组件 | 版本 | 说明 |
+| 模块 | 选型 | 说明 |
 |---|---|---|
-| Go | 1.26+ | CGO-free，单文件交付 |
-| [go-gui](https://github.com/go-gui-org/go-gui) | **v0.78.0**（本地补丁） | 纯 Go GUI（Win32 + WGL，需 OpenGL 3.3） |
-| [go-edit](https://github.com/go-gui-org/go-edit) | **v0.11.0**（本地补丁） | 编辑器 widget（chroma 高亮、goldmark） |
-| go-glyph | v1.25.2 | 字形渲染（由 go-edit 锁定） |
+| 语言 | Rust stable（msvc） | 主程序与全部业务逻辑 |
+| 窗口/布局 | Win32（`windows` crate） | 原生窗口、菜单、分栏、文件对话框 |
+| 编辑器 | **Scintilla 5.15**（`Scintilla.dll`） | 文本缓冲、行号、增量语法高亮、撤销、查找、IME |
+| Markdown 高亮 | **Lexilla 5.30** `markdown` lexer | 走 `SCI_SETILEXER`；容器自染为降级路径 |
+| Markdown 解析 | `pulldown-cmark` 0.13 | 事件流式解析，零拷贝 |
+| 预览渲染 | **RichEdit 4.1**（系统 `Msftedit.dll`） | Markdown → RTF → `EM_STREAMIN`，只读预览 |
 
-**版本墙**：`go-edit v0.11.0` 锁定 `go-gui v0.78.0`；用 go-gui latest（v0.87.0）会因 `Border` API 变化而编译失败。
+> 设计要点：预览链路的 RTF 是**内存中间产物**，中文默认以 `ansicpg936` + GBK 原始字节写入（体积 x1.10、生成快 3.9 倍），RichEdit 只读显示时对用户完全无感；异常字符自动回退 `\u` 转义。
 
-## 关键验证结论
+## 状态
 
-| 项 | 结论 |
+**原型验证已完成并全部达标**，十条准入门槛对照见验证报告。关键实测：
+
+| 指标 | 实测 |
 |---|---|
-| P0 空闲 CPU | ✅ 阻塞式事件循环，空闲 ~0%（pprof 10s 零采样） |
-| P0 内存基线 | ⚠️ Go 堆仅 12MB，WSS ~180MB（GPU/字体占大半，软渲染下） |
-| P1 32MiB 上限 | ✅ 定位在 `buffer.Load` 的 `io.ReadAll`；`os.ReadFile` + `buffer.FromBytes` 可绕过，128MiB 加载 266ms |
-| P1 预览渲染 | ❌ go-gui 原生 Markdown 视图无虚拟化 → 需自建可视区虚拟化预览 |
-| P2 磁盘体积 | ✅ 单 EXE 18.7MB（stripped），CGO-free 自包含 |
-| IME 中文输入 | ✅ 已定位并修复（go-gui 上游 issue #999） |
+| 发布体积（空窗口 exe） | **0.24 MiB** |
+| 空闲 CPU（600 s 静止段） | **0.009%** 单核等效（median 0.000%） |
+| Rust GUI 自身私有工作集 | **< 1 MiB**（可见窗口的 21.7 MiB 中大头是第三方输入法+系统 UI 栈注入） |
+| 1 / 10 MiB 打开至可交互 | **27 ms / 37 ms**（128 MiB 569 ms，106 万行） |
+| 128 MiB 文档键入延迟 | p50 0.79 ms / p95 3.69 ms |
+| 1 MiB 预览（解析+RTF+EM_STREAMIN） | **159 ms** |
+| 中文 IME 端到端 | 通过（拼音组合 → “你好”上屏，组合未被父窗口消息处理中断） |
 
-各阶段详细报告：`docs/P0_report.md`、`docs/P1_report.md`、`docs/P2_report.md`、`docs/IME_report.md`、`docs/B_decisions.md`。
+已知需要在正式版落地的修正项（均为工程细节，非架构缺陷）：
 
-## 目录结构
+1. 预览整篇刷新后**光标/选区会重置**（滚动位置正常保持）→ 刷新前 `EM_EXGETSEL`、刷新后 `EM_EXSETSEL`。
+2. 10 MiB 以上文档预览超过 1 s 门槛 → 大文件模式（延迟解析、关闭实时预览），阈值默认 8 MiB。
+3. RichEdit 控件首次灌入有 ~200 ms 一次性开销 → 启动时预热控件。
+4. TSF 中文输入**不产生 `WM_CHAR`** → 输入处理基于 `SCN_MODIFIED` / `SCN_CHARADDED`。
+5. 长代码行在 RichEdit 中会折行（无横向滚动）；如需代码区不折行再评估自绘。
 
-```
-.
-├── go.mod / go.sum / go.work   # 根模块 = 正式版；go.work 统一注入本地补丁
-├── README.md
-├── docs/                       # 需求、研究报告、决策（input.md / *_report.md / HANDOFF.md）
-├── testdata/                   # 测试数据（large/ 由生成器重建，不入库）
-└── ref/                        # 参考源码与原型归档（详见 ref/README.md）
-    ├── go-gui-v0.78.0/         #   [gitignore] 已打补丁的上游源码
-    ├── go-edit-v0.11.0/        #   [gitignore] 已打补丁的上游源码
-    ├── go-gui-v0.87.0/         #   [gitignore] 仅作 API 差异对照
-    ├── dl/                     #   [gitignore] 模块 zip 缓存
-    └── proto/                  #   原型模块（独立 go.mod，冻结归档）
-        ├── cmd/                #     mdproto / p0_* / p1_* / gen_testdata
-        ├── scripts/            #     基准脚本 + fetch_refs.sh
-        └── tools/              #     原型期小工具
-```
-
-## 环境准备
-
-参考源码不入库，首次克隆后需重建（详见 [`ref/README.md`](ref/README.md)）：
+## 构建
 
 ```bash
-# 1) 下载模块 zip 到 ref/dl/（URL 见脚本头部注释）
-# 2) 解包
-bash ref/proto/scripts/fetch_refs.sh
-# 3) 手动应用本地补丁（IME #999、编辑器最大行宽缓存），见 docs/IME_report.md / docs/P1_report.md
+# 1) 原生库（需要 VS2022 + Windows SDK，MSVC nmake）
+build_native.bat
+
+# 2) Scintilla 常量绑定（从头文件生成，避免手抄消息号）
+python scripts/gen_sci_const.py
+
+# 3) 构建
+cargo build --release
+
+# 4) 单元测试（RTF 转义与结构回归，15 项）
+cargo test --release
+
+# 5) 测试数据（1~128 MiB，可再生）
+target/release/gen_testdata.exe --large
 ```
 
-## 构建与运行
+产物：`target/release/*.exe`（0.24~0.56 MiB）+ `native/scintilla/bin/Scintilla.dll`（0.78 MiB）+ `native/lexilla/bin/lexilla.dll`（1.18 MiB）。
 
-```bash
-# 正式版（根模块）——开发中
-go build ./...
-go run ./cmd/wild-markdown <file.md>   # 目标入口（待实现）
+## 目录
 
-# 原型（ref/proto 独立模块，通过 go.work 一并构建）
-go run ./ref/proto/cmd/mdproto testdata/large/md_1MiB_norm.md
-bash ref/proto/scripts/run_bench.sh
+```
+src/
+  win.rs          Win32 基础：DPI、窗口类、消息循环、菜单、截图
+  metrics.rs      进程内资源自采样（私有/共享工作集、CPU、GDI、句柄、模块）
+  harness.rs      场景时间线、参数、JSONL 汇总
+  scintilla.rs    Scintilla 薄 FFI（LoadLibrary + SendMessageW + 常量绑定）
+  md2rtf.rs       Markdown → RTF（转义/Unicode/GBK、表格、代码块、链接 field）
+  richedit.rs     RichEdit 4.1 封装（EM_STREAMIN、滚动、选区、剪贴板）
+  sci_const.rs    由 scripts/gen_sci_const.py 生成（1070 个常量）
+  bin/            p0_blank / p1_scintilla / p2_preview / mem_probe / gen_testdata
+tests/            RTF 转义与结构回归测试
+scripts/          gen_sci_const.py（常量生成）、run_task.py（交互桌面投递）、bmp_stats.py、rtf_check.py
+native/           Scintilla/Lexilla 源码与构建产物（不入库，build_native.bat 可再生）
+ref/              Go 路线归档与上游参考源码（不入库）
 ```
 
-## 正式版开发计划（阶段 C）
+## 重要工程约定
 
-1. **MVP**：文件打开/保存/另存、最近文件、外部变更提示、快捷键、主题。
-2. **大文件**：可视区虚拟化预览（骨架 + 懒加载），替代全篇 RTF 构建。
-3. **模块化**（`internal/`）：
-   - `internal/app` 应用装配与生命周期
-   - `internal/editor` 编辑器封装（**不直接改供应商**，补丁经 go.work 注入）
-   - `internal/preview` 预览渲染（虚拟化）
-   - `internal/doc` 文档模型（加载/编码/换行/大文件分档）
-   - `internal/fsx` 文件监视与原子写
-4. **质量**：`go vet` / `golangci-lint` / 单元测试（`go test ./...`，`tdd` 驱动）。
+- **GUI 测量必须在交互桌面（session 1）进行**：在服务上下文（session 0）创建窗口不会真正绘制，测出的内存/渲染全失真（实测 5.6 vs 41.9 MiB）。`scripts/run_task.py` 负责经计划任务投递到交互会话。
+- **不得直接修改 `native/` 下的上游源码**：Scintilla/Lexilla 用官方源码原样构建；需要改动时通过补丁脚本注入并记录。
+- 提交范围见 `.gitignore`：`ref/`、`temp/`、`testdata/`、`docs/`、`artifacts/`、`native/`、`target/` 默认不入库；`docs/` 采用白名单逐篇确认。
 
-## 备注
+## 许可证
 
-- 临时文件统一放仓库根 `temp/`（已在 `.gitignore`，勿用系统临时目录）。
-- 本地补丁目前仅存在于 `ref/`，尚未向 go-gui 提交 PR。
+[MIT](LICENSE)。第三方组件（Scintilla / Lexilla / windows-rs / pulldown-cmark）许可证与链接方式见 LICENSE 附录。
